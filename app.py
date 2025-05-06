@@ -121,14 +121,16 @@ def login():
 def login_form():
     return """
     <link rel='stylesheet' href='/static/login.css'>
-    <h2>Login</h2>
-    <form action="/login" method="post">
-        <label>Username:</label> <input type="text" name="username" required><br>
-        <label>Password:</label> <input type="password" name="password" required><br>
-        <button type="submit">Login</button>
-    </form>
-    <a href='/home'>Go to Home</a>
-    """    
+    <div class="login-wrapper">
+        <h2>Login</h2>
+        <form action="/login" method="post">
+            <label>Username:</label> <input type="text" name="username" required>
+            <label>Password:</label> <input type="password" name="password" required>
+            <button type="submit">Login</button>
+            <a href='/home'>Go to Home</a>
+        </form>
+    </div>
+    """  
     
 socketio = SocketIO(app)
 
