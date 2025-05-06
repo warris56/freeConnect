@@ -129,6 +129,12 @@ def chat_page():
 def index():
     return redirect(url_for("home"))
 
+@app.route("/users")
+def get_users():
+    users = User.query.all()
+    return {"users": [{"id": user.id, "username": user.username} for user in users]}
+
+
    
 if __name__ == "__main__":
     socketio.run(app, debug=True)
