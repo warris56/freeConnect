@@ -82,13 +82,20 @@ def home():
 
     return f"""
     <link rel='stylesheet' href='/static/style.css'>
-    <h1>Welcome, {current_user.username}!</h1>
-    <a href='/send_message_form'>Send Message</a> | <a href='/chat'>Live Chat</a> | <a href='/logout'>Logout</a>
-    <h2>Messages:</h2>
-    <ul>
-        {"".join(f"<li><strong>From {m.sender_id} to {m.receiver_id}:</strong> {m.content} at {m.timestamp}</li>" for m in messages)}
-    </ul>
-    """
+    <div class='container'>
+        <h1>Welcome, {current_user.username}!</h1>
+        <div class='navbar'>
+           <a href='/send_message_form'>Send Message</a>
+           <a href='/chat'>Live Chat</a>
+           <a href='/logout'>Logout</a>
+        </div>
+        <h2>Messages:</h2>
+        <ul class='message-list'>
+            {"".join(f"<li><strong>From {m.sender_id} to {m.receiver_id}:</strong> {m.content}<div class='timestamp'>{m.timestamp}</div></li>" for m in messages)}
+        </ul>
+    </div>
+    """       
+    
 
 @app.route("/register_form")
 def register_form():
