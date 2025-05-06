@@ -93,6 +93,7 @@ def home():
 @app.route("/register_form")
 def register_form():
     return """
+    <link rel='stylesheet' href='/static/style.css'>
     <h2>Register</h2>
     <form action="/register" method="post">
         <label>Username:</label> <input type="text" name="username" required><br>
@@ -119,6 +120,7 @@ def login():
 @app.route("/login_form")
 def login_form():
     return """
+    <link rel='stylesheet' href='/static/login.css'>
     <h2>Login</h2>
     <form action="/login" method="post">
         <label>Username:</label> <input type="text" name="username" required><br>
@@ -139,6 +141,7 @@ def handle_message(data):
 
 def chat():
     return """
+    <link rel='stylesheet' href='/static/style.css'>
     <h2>Live Chat</h2>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
     <script>
@@ -165,6 +168,7 @@ def send_message_form():
     user_options = "".join(f'<option value="{user.id}">{user.username}</option>' for user in users)
 
     return f"""
+    <link rel='stylesheet' href='/static/style.css'>
     <h2>Send a Private Message</h2>
     <form action="/send_message" method="post">
         <label>Sender:</label> 
