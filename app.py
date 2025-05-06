@@ -125,6 +125,9 @@ def send_message_form():
 @app.route("/chat")
 def chat_page():
     return chat()
+@app.route("/")
+def index():
+    return redirect(url_for("home"))
 
    
 if __name__ == "__main__":
