@@ -53,6 +53,7 @@ def home():
     users = User.query.all()
     messages = Message.query.order_by(Message.timestamp.desc()).all()
     return f"""
+    <link rel='stylesheet' href='/static/style.css'>
     <h1>Welcome to FreeConnect</h1>
     <a href='/register_form'>Register</a> | <a href='/send_message_form'>Send Message</a> | <a href='/chat'>Live Chat</a>
     <h2>Users:</h2>
