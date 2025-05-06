@@ -1,21 +1,36 @@
 from flask import Flask
+from flask_login import login_required
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin
+from flask_migrate import Migrate
 from flask import request, redirect, url_for
 from datetime import datetime
 from flask_socketio import SocketIO
+from flask_login import login_user, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
 app.config["SECRET_KEY"] = "your_secret_key"  # For session security
 
-db = SQLAlchemy(app)
+
+
+db = SQLAlchemy(app)  # Initialize the database
+migrate = Migrate(app, db)  # Initialize migration AFTER defining `db`
 login_manager = LoginManager(app)
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
-    password = db.Column(db.String(100), nullable=False)    
+    password_hash = db.Column(db.String(100), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+       
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     sender_id = db.Column(db.Integer, db.ForeignKey("user.id"))
@@ -31,33 +46,44 @@ with app.app_context():
 def register():
     username = request.form["username"]
     password = request.form["password"]
-    user = User(username=username, password=password)
+    
+    user = User(username=username)
+    user.set_password(password)  # Hash the password before storing
+    
     db.session.add(user)
     db.session.commit()
     return redirect(url_for("home"))
 
 @app.route("/send_message", methods=["POST"])
+@login_required
 def send_message():
-    sender_id = request.form["sender_id"]
-    receiver_id = request.form["receiver_id"]
-    content = request.form["content"]
+    sender_id = request.form.get("sender_id")  # Use `.get()` to avoid errors
+    receiver_id = request.form.get("receiver_id")
+    content = request.form.get("content")
+
+    if not sender_id or not receiver_id or not content:
+        return "Error: Missing sender, receiver, or message content!", 400
 
     message = Message(sender_id=sender_id, receiver_id=receiver_id, content=content)
     db.session.add(message)
     db.session.commit()
 
-    return "Message sent successfully!"
+    return redirect(url_for("home"))
+
 
 @app.route("/home")
 def home():
-    users = User.query.all()
-    messages = Message.query.order_by(Message.timestamp.desc()).all()
+    if not current_user.is_authenticated:
+        return redirect(url_for("login_form"))
+
+    messages = Message.query.filter(
+        (Message.sender_id == current_user.id) | (Message.receiver_id == current_user.id)
+    ).order_by(Message.timestamp.desc()).all()
+
     return f"""
     <link rel='stylesheet' href='/static/style.css'>
-    <h1>Welcome to FreeConnect</h1>
-    <a href='/register_form'>Register</a> | <a href='/send_message_form'>Send Message</a> | <a href='/chat'>Live Chat</a>
-    <h2>Users:</h2>
-    <ul>{"".join(f"<li>{user.username}</li>" for user in users)}</ul>
+    <h1>Welcome, {current_user.username}!</h1>
+    <a href='/send_message_form'>Send Message</a> | <a href='/chat'>Live Chat</a> | <a href='/logout'>Logout</a>
     <h2>Messages:</h2>
     <ul>
         {"".join(f"<li><strong>From {m.sender_id} to {m.receiver_id}:</strong> {m.content} at {m.timestamp}</li>" for m in messages)}
@@ -75,6 +101,32 @@ def register_form():
     </form>
     <a href='/home'>Go to Home</a>
     """
+    
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form["username"]
+    password = request.form["password"]
+    
+    user = User.query.filter_by(username=username).first()
+    if user and user.check_password(password):
+        login_user(user)  # Logs in the user
+        return redirect(url_for("home"))
+    else:
+        return "Invalid credentials"   
+    
+    
+@app.route("/login_form")
+def login_form():
+    return """
+    <h2>Login</h2>
+    <form action="/login" method="post">
+        <label>Username:</label> <input type="text" name="username" required><br>
+        <label>Password:</label> <input type="password" name="password" required><br>
+        <button type="submit">Login</button>
+    </form>
+    <a href='/home'>Go to Home</a>
+    """    
     
 socketio = SocketIO(app)
 
@@ -107,15 +159,16 @@ def chat():
 
     
 @app.route("/send_message_form")
+@login_required
 def send_message_form():
     users = User.query.all()
     user_options = "".join(f'<option value="{user.id}">{user.username}</option>' for user in users)
 
     return f"""
-    <h2>Send Message</h2>
+    <h2>Send a Private Message</h2>
     <form action="/send_message" method="post">
         <label>Sender:</label> 
-        <select name="sender_id">{user_options}</select><br>
+        <input type="hidden" name="sender_id" value="{current_user.id}">
         <label>Receiver:</label> 
         <select name="receiver_id">{user_options}</select><br>
         <label>Message:</label> <textarea name="content" required></textarea><br>
@@ -134,6 +187,15 @@ def index():
 def get_users():
     users = User.query.all()
     return {"users": [{"id": user.id, "username": user.username} for user in users]}
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+@app.route("/logout")
+def logout():
+    logout_user()
+    return redirect(url_for("home"))
 
 
    
