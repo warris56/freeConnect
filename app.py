@@ -9,15 +9,20 @@ from flask_socketio import SocketIO
 from flask_login import login_user, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
+
+
+
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
-app.config["SECRET_KEY"] = "your_secret_key"  # For session security
+app.config["SECRET_KEY"] = "your_secret_key"
 
-
-
-db = SQLAlchemy(app)  # Initialize the database
-migrate = Migrate(app, db)  # Initialize migration AFTER defining `db`
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager = LoginManager(app)
+
+from socket_events import socketio  # Import AFTER Flask setup
+socketio.init_app(app)  # Attach WebSocket to Flask correctly
+
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -46,12 +51,19 @@ with app.app_context():
 def register():
     username = request.form["username"]
     password = request.form["password"]
-    
+
+    # Check if username exists
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        return "Username already taken, please choose another."
+
+    # Create and store new user
     user = User(username=username)
-    user.set_password(password)  # Hash the password before storing
+    user.set_password(password)
     
     db.session.add(user)
     db.session.commit()
+    login_user(user)  # Auto-login after registration
     return redirect(url_for("home"))
 
 @app.route("/send_message", methods=["POST"])
@@ -100,7 +112,7 @@ def home():
 @app.route("/register_form")
 def register_form():
     return """
-    <link rel='stylesheet' href='/static/style.css'>
+    <link rel='stylesheet' href='/static/login.css'>
     <h2>Register</h2>
     <form action="/register" method="post">
         <label>Username:</label> <input type="text" name="username" required><br>
@@ -121,8 +133,8 @@ def login():
         login_user(user)  # Logs in the user
         return redirect(url_for("home"))
     else:
-        return "Invalid credentials"   
-    
+        return redirect(url_for("register_form"))  # Redirect to register if user doesn't exist
+
     
 @app.route("/login_form")
 def login_form():
@@ -134,17 +146,13 @@ def login_form():
             <label>Username:</label> <input type="text" name="username" required>
             <label>Password:</label> <input type="password" name="password" required>
             <button type="submit">Login</button>
-            <a href='/home'>Go to Home</a>
         </form>
+        <p>Don't have an account? <a href='/register_form'>Register Here</a></p>
+        <a href='/home'>Go to Home</a>
     </div>
-    """  
-    
-socketio = SocketIO(app)
+    """
 
-@socketio.on("message")
-def handle_message(data):
-    print(f"Received message: {data}")
-    socketio.emit("message", data)
+    
 
 
 
@@ -173,7 +181,7 @@ def chat():
 @app.route("/send_message_form")
 @login_required
 def send_message_form():
-    users = User.query.all()
+    users = User.query.all()  # List only registered users
     user_options = "".join(f'<option value="{user.id}">{user.username}</option>' for user in users)
 
     return f"""
@@ -189,6 +197,7 @@ def send_message_form():
     </form>
     <a href='/home'>Go to Home</a>
     """
+
 @app.route("/chat")
 def chat_page():
     return chat()
