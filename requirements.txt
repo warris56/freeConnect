@@ -3,6 +3,9 @@ flask-sqlalchemy
 flask-migrate
 flask-moment
 six
+eventlet
+Werkzeug
+Flask-WTF
 flask-login
 flask-socketio
 python-dotenv
