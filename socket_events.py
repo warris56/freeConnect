@@ -1,22 +1,37 @@
-from flask_socketio import SocketIO
+from flask import emit
+from datetime import datetime
 
-socketio = SocketIO()  # Initialize SocketIO independently
+@socketio.on('message')
+def handle_message(data):
+    if not current_user.is_authenticated:
+        return  # Ignore if the user is not logged in
 
-@socketio.on("send_message")
-def handle_send_message(data):
-    from app import db, Message  # Import inside function to avoid circular import
-    
-    sender_id = data["sender_id"]
-    receiver_id = data["receiver_id"]
-    content = data["content"]
+    receiver_id = data.get('receiver_id')
+    content = data.get('content')
 
-    message = Message(sender_id=sender_id, receiver_id=receiver_id, content=content)
-    db.session.add(message)
-    db.session.commit()
+    if receiver_id and content:
+        # Save to DB
+        msg = Message(sender_id=current_user.id, receiver_id=receiver_id, content=content)
+        db.session.add(msg)
+        db.session.commit()
 
-    socketio.emit("new_message", {
-        "sender_id": sender_id,
-        "receiver_id": receiver_id,
-        "content": content,
-        "timestamp": message.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    }, broadcast=True)
+        # Emit the message to both sender and receiver
+        emit('new_message', {
+            'content': content,
+            'timestamp': datetime.utcnow().strftime('%H:%M'),
+            'sender_id': current_user.id,
+            'receiver_id': receiver_id
+        }, room=f'user_{receiver_id}')
+        
+        emit('new_message', {
+            'content': content,
+            'timestamp': datetime.utcnow().strftime('%H:%M'),
+            'sender_id': current_user.id,
+            'receiver_id': receiver_id
+        }, room=f'user_{current_user.id}')
+
+        # Emit a notification to the receiver
+        emit('new_notification', {
+            'message': f'You have a new message from {current_user.username}',
+            'sender_id': current_user.id
+        }, room=f'user_{receiver_id}')

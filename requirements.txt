@@ -1,6 +1,6 @@
 flask
-flask-socketio
-flask-login
 flask-sqlalchemy
-flask-migrate
-gunicorn
+flask-login
+flask-socketio
+python-dotenv
+pywebpush==1.9.0

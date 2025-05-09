@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - FreeConnect</title>
+    <link rel="stylesheet" href="/static/home.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    {{ moment.include_moment() }}
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>FreeConnect</h2>
+            </div>
+            <div class="sidebar-user">
+                {% if current_user.profile_picture %}
+                    <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_picture) }}" alt="Your Profile" class="sidebar-profile-pic">
+                {% else %}
+                    <img src="{{ url_for('static', filename='profile_pics/default.jpg') }}" alt="Default Profile" class="sidebar-profile-pic">
+                {% endif %}
+                <div class="user-info-sidebar">
+                    <h3>{{ current_user.username }}</h3>
+                    <span class="status online">Online</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active"><a href="{{ url_for('home') }}"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="{{ url_for('profile') }}"><i class="fas fa-user"></i> Profile</a></li>
+                    <li><a href="#"><i class="fas fa-bell"></i> Notifications <span class="badge">3</span></a></li>
+                    <li><a href="#"><i class="fas fa-comment-alt"></i> Messages</a></li>
+                    <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+                    <li class="sidebar-divider"></li>
+                    <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <p>© 2025 FreeConnect</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header & Welcome Message -->
+            <header class="dashboard-header">
+                <div class="welcome-section">
+                    <div class="greeting">
+                        <h1>Welcome back, {{ current_user.username }} 👋</h1>
+                        <p class="subtitle">Here's what's happening in your network today</p>
+                    </div>
+                    <div class="user-actions">
+                        <div class="search-wrapper">
+                            <input type="text" id="searchInput" placeholder="Search users...">
+                            <i class="fas fa-search"></i>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Stats Dashboard -->
+            <section class="stats-dashboard">
+                <div class="stat-card">
+                    <div class="stat-icon online-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Users Online</h3>
+                        <p class="stat-number">{{ users|selectattr('is_online')|list|length }}</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon message-icon">
+                        <i class="fas fa-comment-dots"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Messages</h3>
+                        <p class="stat-number" id="messageCount">0</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon connection-icon">
+                        <i class="fas fa-handshake"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Total Users</h3>
+                        <p class="stat-number">{{ users|length + 1 }}</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon activity-icon">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Last Login</h3>
+                        <p class="stat-text">{{ moment(current_user.last_seen).fromNow() }}</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recent Chats Section -->
+            <section class="recent-chats">
+                <div class="section-header">
+                    <h2><i class="fas fa-comments"></i> Recent Conversations</h2>
+                    <a href="#" class="view-all">View All</a>
+                </div>
+                <div class="chat-list" id="recentChats">
+                    <!-- This will be populated with JavaScript -->
+                    <div class="empty-chats-placeholder">
+                        <i class="fas fa-comment-slash"></i>
+                        <p>No recent conversations</p>
+                        <small>Start chatting with someone from the directory below</small>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Users Directory -->
+            <section class="users-directory">
+                <div class="section-header">
+                    <h2><i class="fas fa-address-book"></i> Users Directory</h2>
+                    <div class="filter-controls">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="online">Online</button>
+                        <button class="filter-btn" data-filter="offline">Offline</button>
+                    </div>
+                </div>
+                
+                <div class="user-grid">
+                    {% for user in users %}
+                        <div class="user-card" data-status="{{ 'online' if user.is_online else 'offline' }}" data-username="{{ user.username }}">
+                            <div class="user-card-header">
+                                <div class="user-status {{ 'online' if user.is_online else 'offline' }}"></div>
+                                {% if user.is_online %}
+                                    <span class="status-text">Online now</span>
+                                {% else %}
+                                    <span class="status-text">Last seen {{ moment(user.last_seen).fromNow() }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="user-avatar">
+                                {% if user.profile_picture %}
+                                    <img src="{{ url_for('static', filename='profile_pics/' + user.profile_picture) }}" alt="{{ user.username }}'s Profile" class="profile-pic">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='profile_pics/default.jpg') }}" alt="Default Profile Picture" class="profile-pic">
+                                {% endif %}
+                            </div>
+                            
+                            <div class="user-details">
+                                <h3>{{ user.username }}</h3>
+                                {% if user.full_name %}
+                                    <p class="user-fullname">{{ user.full_name }}</p>
+                                {% endif %}
+                                
+                                {% if user.location %}
+                                    <p class="user-location"><i class="fas fa-map-marker-alt"></i> {{ user.location }}</p>
+                                {% endif %}
+                                
+                                {% if user.bio %}
+                                    <p class="user-bio">{{ user.bio|truncate(100) }}</p>
+                                {% else %}
+                                    <p class="user-bio empty">No bio available</p>
+                                {% endif %}
+                                
+                                <div class="member-since">
+                                    <i class="fas fa-clock"></i> Member since {{ moment(user.created_at).format('LL') }}
+                                </div>
+                            </div>
+                            
+                            <div class="user-actions">
+                                <a class="btn primary-btn" href="{{ url_for('chat', user_id=user.id) }}">
+                                    <i class="fas fa-comment"></i> Chat Now
+                                </a>
+                                <button class="btn secondary-btn view-profile-btn" data-user-id="{{ user.id }}">
+                                    <i class="fas fa-user"></i> View Profile
+                                </button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <div class="empty-icon">
+                                <i class="fas fa-users-slash"></i>
+                            </div>
+                            <h3>No Users Found</h3>
+                            <p>No other users yet. Invite your friends to join FreeConnect!</p>
+                            <button class="invite-btn">
+                                <i class="fas fa-envelope"></i> Send Invites
+                            </button>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- Recent Activity Section -->
+            <section class="recent-activity">
+                <div class="section-header">
+                    <h2><i class="fas fa-chart-line"></i> Recent Activity</h2>
+                </div>
+                <div class="activity-timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-icon join">
+                            <i class="fas fa-user-plus"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h4>New User Joined</h4>
+                            <p>Sophie joined FreeConnect</p>
+                            <span class="timeline-time">2 hours ago</span>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-icon message">
+                            <i class="fas fa-comment-alt"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h4>New Message</h4>
+                            <p>You received a message from Alex</p>
+                            <span class="timeline-time">3 hours ago</span>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-icon update">
+                            <i class="fas fa-sync"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h4>System Update</h4>
+                            <p>FreeConnect was updated to version 2.3</p>
+                            <span class="timeline-time">Yesterday</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div id="userProfileModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div id="modalContent" class="user-profile-content">
+                <!-- Content will be dynamically loaded -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function() {
+            const filter = this.value.toLowerCase();
+            document.querySelectorAll('.user-card').forEach(card => {
+                const username = card.getAttribute('data-username').toLowerCase();
+                if (username.includes(filter)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Filter users by status
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remove active class from all buttons
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                
+                // Add active class to clicked button
+                this.classList.add('active');
+                
+                const filter = this.getAttribute('data-filter');
+                
+                document.querySelectorAll('.user-card').forEach(card => {
+                    if (filter === 'all') {
+                        card.style.display = 'flex';
+                    } else {
+                        const status = card.getAttribute('data-status');
+                        if (status === filter) {
+                            card.style.display = 'flex';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    }
+                });
+            });
+        });
+
+        // Initialize Socket.IO for real-time updates
+        const socket = io();
+        
+        // Listen for user status changes
+        socket.on('user_status_change', data => {
+            const userCard = document.querySelector(`.user-card[data-user-id="${data.user_id}"]`);
+            if (userCard) {
+                const statusIndicator = userCard.querySelector('.user-status');
+                const statusText = userCard.querySelector('.status-text');
+                
+                if (data.is_online) {
+                    statusIndicator.className = 'user-status online';
+                    statusText.textContent = 'Online now';
+                } else {
+                    statusIndicator.className = 'user-status offline';
+                    statusText.textContent = 'Last seen just now';
+                }
+            }
+        });
+
+        // Update message count
+        socket.on('new_message', data => {
+            const messageCountElement = document.getElementById('messageCount');
+            const currentCount = parseInt(messageCountElement.textContent);
+            messageCountElement.textContent = currentCount + 1;
+            
+            // Update recent chats if needed
+            updateRecentChats();
+        });
+
+        // Function to update recent chats
+        function updateRecentChats() {
+            // This would typically make an AJAX call to get recent chats
+            // For demo purposes, we'll just show a placeholder
+            const recentChatsElement = document.getElementById('recentChats');
+            const emptyPlaceholder = recentChatsElement.querySelector('.empty-chats-placeholder');
+            
+            if (emptyPlaceholder) {
+                emptyPlaceholder.style.display = 'none';
+                
+                // Add a sample chat entry (in a real app, this would be dynamic)
+                const chatEntry = document.createElement('div');
+                chatEntry.className = 'chat-entry';
+                chatEntry.innerHTML = `
+                    <div class="chat-user-avatar">
+                        <img src="/static/profile_pics/default.jpg" alt="User Avatar">
+                        <span class="status-dot online"></span>
+                    </div>
+                    <div class="chat-info">
+                        <h4>Sample User</h4>
+                        <p class="last-message">Hey there! How are you doing today?</p>
+                    </div>
+                    <div class="chat-meta">
+                        <span class="chat-time">Just now</span>
+                        <span class="unread-count">1</span>
+                    </div>
+                `;
+                
+                recentChatsElement.appendChild(chatEntry);
+            }
+        }
+
+        // Modal functionality for viewing user profiles
+        const modal = document.getElementById('userProfileModal');
+        const modalContent = document.getElementById('modalContent');
+        const closeModal = document.querySelector('.close-modal');
+        
+        // Open modal when "View Profile" is clicked
+        document.querySelectorAll('.view-profile-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const userId = this.getAttribute('data-user-id');
+                
+                // In a real app, this would fetch the user profile data
+                // For demo purposes, we'll just show a static profile
+                modalContent.innerHTML = `
+                    <div class="modal-profile-header">
+                        <img src="/static/profile_pics/default.jpg" alt="User Profile" class="modal-profile-pic">
+                        <h2>User Profile</h2>
+                    </div>
+                    <div class="modal-profile-info">
+                        <p><strong>Username:</strong> user${userId}</p>
+                        <p><strong>Member Since:</strong> January 15, 2025</p>
+                        <p><strong>Bio:</strong> This is a sample bio for the user profile modal.</p>
+                    </div>
+                    <div class="modal-actions">
+                        <a href="/chat/${userId}" class="modal-btn primary">Send Message</a>
+                    </div>
+                `;
+                
+                modal.style.display = 'block';
+            });
+        });
+        
+        // Close modal when the X is clicked
+        closeModal.addEventListener('click', function() {
+            modal.style.display = 'none';
+        });
+        
+        // Close modal when clicking outside the modal content
+        window.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
