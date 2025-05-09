@@ -1,0 +1,9 @@
+services:
+  - name: freeconnect-app
+    type: web
+    plan: free
+    envVars:
+      - key: SECRET_KEY
+        value: "87956f2790fa611603d672d227fa4f861ede9cd531e34d17bd7c2f3ac7cc9137"
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn --worker-class eventlet -w 1 app:app"
