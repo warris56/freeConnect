@@ -2,6 +2,7 @@ flask
 flask-sqlalchemy
 flask-migrate
 flask-moment
+six
 flask-login
 flask-socketio
 python-dotenv
