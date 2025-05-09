@@ -45,106 +45,73 @@
         const chatBox = document.getElementById('chat-box');
         const messageForm = document.getElementById('message-form');
         const messageInput = document.getElementById('message-input');
-        const typingIndicator = document.getElementById('typing-indicator'); // Typing indicator element
-        const notificationBar = document.getElementById('notification-bar'); // Notification bar element
-        const notificationMessage = document.getElementById('notification-message'); // Notification text
+        const typingIndicator = document.getElementById('typing-indicator'); 
+        const notificationBar = document.getElementById('notification-bar'); 
+        const notificationMessage = document.getElementById('notification-message'); 
 
         let typingTimeout;
+        const chatRoom = `chat_${Math.min({{ current_user.id }}, {{ partner.id }})}_${Math.max({{ current_user.id }}, {{ partner.id }})}`;
 
-        // When the user starts typing, emit a typing event
+        // ✅ Join chat room on page load
+        socket.emit('join_room', {
+            user_id: {{ current_user.id }},
+            partner_id: {{ partner.id }}
+        });
+
+        // ✅ Send typing event when user is typing
         messageInput.addEventListener('input', () => {
-            if (typingTimeout) {
-                clearTimeout(typingTimeout);
-            }
-            
-            // Emit typing event to the server
-            socket.emit('typing', {
-                receiver_id: {{ partner.id }}
-            });
+            clearTimeout(typingTimeout);
+            socket.emit('typing', { receiver_id: {{ partner.id }} });
 
-            // Stop typing event after 3 seconds of inactivity
             typingTimeout = setTimeout(() => {
-                socket.emit('typing', {
-                    receiver_id: {{ partner.id }}
-                });
+                socket.emit('typing', { receiver_id: {{ partner.id }} });
             }, 3000);
         });
 
-        // Listen for 'new_message' event from the server and display the message
-        socket.on('new_message', data => {
-            if (data.sender_id !== {{ current_user.id }} && data.sender_id === {{ partner.id }}) {
-                const msg = document.createElement('div');
-                msg.classList.add('message', 'received');
+        // ✅ Listen for new messages
+        socket.on("new_message", function(data) {
+            if (data.sender_id === {{ partner.id }}) {
+                const msg = document.createElement("div");
+                msg.classList.add("message", "received");
                 msg.innerHTML = `<p>${data.content}</p><small>${data.timestamp}</small>`;
                 chatBox.appendChild(msg);
                 chatBox.scrollTop = chatBox.scrollHeight;
 
-                // Display a notification to the user when a new message arrives
-                notificationMessage.textContent = `New message from ${data.sender_id === {{ partner.id }} ? '{{ partner.username }}' : 'You'}`;
-                notificationBar.style.display = 'block';
-                setTimeout(() => {
-                    notificationBar.style.display = 'none';
-                }, 5000);
-
-                // Send push notification if subscription is available
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    // Make sure the user has granted permission for notifications
-                    sendPushNotification(data);
-                }
+                // Show notification
+                notificationMessage.textContent = `New message from {{ partner.username }}`;
+                notificationBar.style.display = "block";
+                setTimeout(() => notificationBar.style.display = "none", 5000);
             }
         });
 
-        // Listen for 'typing' event to show typing indicator
-        socket.on('typing', data => {
-            if (data.sender_id === {{ partner.id }} && data.receiver_id === {{ current_user.id }}) {
-                typingIndicator.style.display = 'block';  // Show typing indicator
+        // ✅ Listen for typing status
+        socket.on("typing", function(data) {
+            if (data.sender_id === {{ partner.id }}) {
+                typingIndicator.style.display = "block";
             } else {
-                typingIndicator.style.display = 'none'; // Hide if not the correct partner
+                typingIndicator.style.display = "none";
             }
         });
 
-        // Hide typing indicator after message is sent or after timeout
-        messageForm.addEventListener('submit', e => {
+        // ✅ Send message on form submit
+        messageForm.addEventListener("submit", function(e) {
             e.preventDefault();
-            const content = messageInput.value;
-
-            if (content.trim() !== '') {
-                socket.emit('message', {
+            const content = messageInput.value.trim();
+            if (content) {
+                socket.emit("message", {
                     receiver_id: {{ partner.id }},
                     content: content
                 });
 
-                const msg = document.createElement('div');
-                msg.classList.add('message', 'sent');
-                const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                msg.innerHTML = `<p>${content}</p><small>${now}</small>`;
+                const msg = document.createElement("div");
+                msg.classList.add("message", "sent");
+                msg.innerHTML = `<p>${content}</p><small>${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>`;
                 chatBox.appendChild(msg);
                 chatBox.scrollTop = chatBox.scrollHeight;
-                messageInput.value = '';
-
-                // Hide typing indicator when the message is sent
-                typingIndicator.style.display = 'none';
+                messageInput.value = "";
+                typingIndicator.style.display = "none";
             }
         });
-
-        // Function to send push notification to the client
-        function sendPushNotification(data) {
-            const subscriptionInfo = {/* Retrieve subscription info from service worker */};
-
-            fetch('/send_push_notification', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    subscription_info: subscriptionInfo,
-                    message: data.content
-                })
-            })
-            .then(response => response.json())
-            .then(data => console.log('Push notification sent', data))
-            .catch(error => console.error('Error sending push notification', error));
-        }
     </script>
 </body>
 </html>

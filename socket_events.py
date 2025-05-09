@@ -1,37 +1,38 @@
 from flask import emit
+from app import db, Message, load_user
 from datetime import datetime
 
-@socketio.on('message')
-def handle_message(data):
-    if not current_user.is_authenticated:
-        return  # Ignore if the user is not logged in
+@socketio.on("join_room")
+def handle_join_room(data):
+    user_id = data["user_id"]
+    partner_id = data["partner_id"]
 
-    receiver_id = data.get('receiver_id')
-    content = data.get('content')
+    # ✅ Ensure both users enter the same chat room
+    chat_room = f'chat_{min(user_id, partner_id)}_{max(user_id, partner_id)}'
+    join_room(chat_room)
+    print(f'User {user_id} joined room {chat_room}')
+
+@socketio.on("message")
+def handle_message(data):
+    user = load_user(data["sender_id"])  # ✅ Ensure session loads correctly
+    if not user:
+        return
+
+    receiver_id = data.get("receiver_id")
+    content = data.get("content")
 
     if receiver_id and content:
-        # Save to DB
-        msg = Message(sender_id=current_user.id, receiver_id=receiver_id, content=content)
+        msg = Message(sender_id=user.id, receiver_id=receiver_id, content=content)
         db.session.add(msg)
         db.session.commit()
 
-        # Emit the message to both sender and receiver
-        emit('new_message', {
-            'content': content,
-            'timestamp': datetime.utcnow().strftime('%H:%M'),
-            'sender_id': current_user.id,
-            'receiver_id': receiver_id
-        }, room=f'user_{receiver_id}')
-        
-        emit('new_message', {
-            'content': content,
-            'timestamp': datetime.utcnow().strftime('%H:%M'),
-            'sender_id': current_user.id,
-            'receiver_id': receiver_id
-        }, room=f'user_{current_user.id}')
+        # ✅ Use shared chat room for instant updates
+        chat_room = f'chat_{min(user.id, receiver_id)}_{max(user.id, receiver_id)}'
 
-        # Emit a notification to the receiver
-        emit('new_notification', {
-            'message': f'You have a new message from {current_user.username}',
-            'sender_id': current_user.id
-        }, room=f'user_{receiver_id}')
+        emit("new_message", {
+            "content": content,
+            "timestamp": datetime.utcnow().strftime("%H:%M"),
+            "sender_id": user.id,
+            "receiver_id": receiver_id
+        }, room=chat_room)
+
