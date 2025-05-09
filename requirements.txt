@@ -4,3 +4,4 @@ flask-login
 flask-socketio
 python-dotenv
 pywebpush==1.9.0
+gunicorn
